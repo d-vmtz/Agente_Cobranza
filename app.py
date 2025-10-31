@@ -207,6 +207,155 @@ def delete_payment_method(method_id):
             cursor.close()
             conn.close()
 
+
+# ---------------------------------------------------------------------
+# CRUD: Clientes
+# ---------------------------------------------------------------------
+
+# ✅ GET -> Obtener todos los clientes
+@app.route("/customers", methods=["GET"])
+def get_customers():
+    require_auth()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM customers;")
+        rows = cursor.fetchall()
+        data = [dict_from_row(r, cursor) for r in rows]
+        return jsonify(data), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+
+# ✅ GET -> Obtener un cliente específico
+@app.route("/customers/<string:customer_id>", methods=["GET"])
+def get_customer(customer_id):
+    require_auth()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM customers WHERE id = %s;", (customer_id,))
+        row = cursor.fetchone()
+        if not row:
+            return generate_error_response(404, f"No se encontró el cliente {customer_id}")
+        return jsonify(dict_from_row(row, cursor)), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+
+# ✅ POST -> Crear un cliente
+@app.route("/customers", methods=["POST"])
+def create_customer():
+    require_auth()
+    data = request.get_json()
+    required_fields = ["name", "email"]
+    if not all(field in data for field in required_fields):
+        return generate_error_response(400, "Faltan campos obligatorios: name, email")
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        new_id = str(uuid4())
+        query = """
+            INSERT INTO customers (id, name, email, phone, created_at, metadata)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        metadata = json.dumps(data.get("metadata", {}))
+        cursor.execute(query, (
+            new_id,
+            data["name"],
+            data["email"],
+            data.get("phone"),
+            datetime.utcnow(),
+            metadata
+        ))
+        conn.commit()
+
+        cursor.execute("SELECT * FROM customers WHERE id = %s;", (new_id,))
+        row = cursor.fetchone()
+        return jsonify(dict_from_row(row, cursor)), 201
+    except Error as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+
+# ✅ PUT -> Actualizar un cliente
+@app.route("/customers/<string:customer_id>", methods=["PUT"])
+def update_customer(customer_id):
+    require_auth()
+    data = request.get_json()
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM customers WHERE id = %s;", (customer_id,))
+        if not cursor.fetchone():
+            return generate_error_response(404, f"No existe cliente {customer_id}")
+
+        fields, values = [], []
+        for key in ["name", "email", "phone", "metadata"]:
+            if key in data:
+                fields.append(f"{key} = %s")
+                if key == "metadata":
+                    values.append(json.dumps(data[key]))
+                else:
+                    values.append(data[key])
+
+        if not fields:
+            return generate_error_response(400, "No hay campos para actualizar")
+
+        query = f"UPDATE customers SET {', '.join(fields)} WHERE id = %s"
+        values.append(customer_id)
+        cursor.execute(query, tuple(values))
+        conn.commit()
+
+        cursor.execute("SELECT * FROM customers WHERE id = %s;", (customer_id,))
+        row = cursor.fetchone()
+        return jsonify(dict_from_row(row, cursor)), 200
+    except Error as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+
+# ✅ DELETE -> Eliminar un cliente
+@app.route("/customers/<string:customer_id>", methods=["DELETE"])
+def delete_customer(customer_id):
+    require_auth()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM customers WHERE id = %s;", (customer_id,))
+        if not cursor.fetchone():
+            return generate_error_response(404, f"No se encontró el cliente {customer_id}")
+
+        cursor.execute("DELETE FROM customers WHERE id = %s;", (customer_id,))
+        conn.commit()
+        return jsonify({"message": "Cliente eliminado correctamente"}), 200
+    except Error as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
 # ---------------------------------------------------------------------
 # MAIN
 # ---------------------------------------------------------------------

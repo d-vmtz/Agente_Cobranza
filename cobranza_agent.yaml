@@ -1,0 +1,178 @@
+openapi: 3.1.0
+info:
+  title: Plataforma de Cobranza Omnicanal
+  version: 1.0.0
+  description: >
+    API REST para la gestión de clientes y métodos de pago en la plataforma de cobranza omnicanal.
+    Incluye operaciones CRUD autenticadas con token Bearer.
+
+servers:
+  - url: http://localhost:5000
+    description: Servidor local de desarrollo
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Customer:
+      type: object
+      properties:
+        id: { type: string, example: "e7f6a12c-1c0f-4d5c-90d1-b5ea4129a123" }
+        name: { type: string, example: "Juan Pérez" }
+        email: { type: string, example: "juan@example.com" }
+        phone: { type: string, example: "+573001234567" }
+        metadata: { type: object }
+        created_at: { type: string, format: date-time }
+    PaymentMethod:
+      type: object
+      properties:
+        id: { type: string }
+        customer_id: { type: string }
+        type: { type: string, example: "card" }
+        provider: { type: string, example: "stripe" }
+        token: { type: string }
+        last4: { type: string, example: "4242" }
+        expiry_month: { type: integer }
+        expiry_year: { type: integer }
+        is_default: { type: boolean }
+        metadata: { type: object }
+
+security:
+  - bearerAuth: []
+
+paths:
+  /customers:
+    get:
+      summary: Listar todos los clientes
+      responses:
+        "200":
+          description: Lista de clientes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Customer" }
+
+    post:
+      summary: Crear un nuevo cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              required: [name, email]
+              allOf: [{ $ref: "#/components/schemas/Customer" }]
+      responses:
+        "201":
+          description: Cliente creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+
+  /customers/{customer_id}:
+    get:
+      summary: Obtener un cliente específico
+      parameters:
+        - name: customer_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Cliente encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        "404": { description: No encontrado }
+
+    put:
+      summary: Actualizar datos del cliente
+      parameters:
+        - name: customer_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Customer" }
+      responses:
+        "200": { description: Cliente actualizado }
+
+    delete:
+      summary: Eliminar cliente
+      parameters:
+        - name: customer_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Cliente eliminado }
+
+  /payment_methods:
+    get:
+      summary: Listar todos los métodos de pago
+      responses:
+        "200":
+          description: Lista de métodos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PaymentMethod" }
+
+    post:
+      summary: Crear un nuevo método de pago
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              required: [customer_id, type, token]
+              allOf: [{ $ref: "#/components/schemas/PaymentMethod" }]
+      responses:
+        "201":
+          description: Método creado
+
+  /payment_methods/{method_id}:
+    get:
+      summary: Obtener método de pago específico
+      parameters:
+        - name: method_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Método encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentMethod" }
+
+    put:
+      summary: Actualizar método de pago
+      parameters:
+        - name: method_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentMethod" }
+      responses:
+        "200": { description: Método actualizado }
+
+    delete:
+      summary: Eliminar método de pago
+      parameters:
+        - name: method_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Método eliminado }
