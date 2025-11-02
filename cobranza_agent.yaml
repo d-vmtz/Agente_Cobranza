@@ -40,6 +40,56 @@ components:
         expiry_year: { type: integer }
         is_default: { type: boolean }
         metadata: { type: object }
+        PaymentRouteRequest:
+      type: object
+      required: [payment_method, amount]
+      properties:
+        payment_method: { type: string, enum: [card, pse, wallet, corresponsal] }
+        amount: { type: number, format: float }
+        currency: { type: string, example: "MXN" }
+        provider: { type: string, example: "stripe" }
+        metadata: { type: object }
+    PaymentRouteResponse:
+      type: object
+      properties:
+        status: { type: string, example: "ok" }
+        route:
+          type: object
+          properties:
+            method: { type: string }
+            routed_to: { type: string }
+            steps:
+              type: array
+              items: { type: string }
+            amount: { type: number }
+            currency: { type: string }
+            reference_expires_in_hours: { type: integer }
+            metadata: { type: object }
+
+    NegotiationOfferRequest:
+      type: object
+      required: [segmento, amount_due, dpd, propension_pago]
+      properties:
+        segmento: { type: string, example: "consumo" }
+        amount_due: { type: number, format: float, example: 12000 }
+        dpd: { type: integer, example: 45, description: "Días de atraso" }
+        propension_pago: { type: number, format: float, example: 0.62 }
+        campaña: { type: string, example: "black_friday" }
+        metadata: { type: object }
+    NegotiationOfferResponse:
+      type: object
+      properties:
+        status: { type: string, example: "ok" }
+        proposal:
+          type: object
+          properties:
+            tactic: { type: string, enum: [discount, installments, hybrid] }
+            discount_pct: { type: number }
+            installments: { type: integer }
+            interest_rate_monthly: { type: number }
+            conditions:
+              type: array
+              items: { type: string }
 
 security:
   - bearerAuth: []
@@ -176,3 +226,38 @@ paths:
           schema: { type: string }
       responses:
         "200": { description: Método eliminado }
+    /strategy/payment_route:
+    post:
+      summary: Selecciona y ejecuta la estrategia de enrutamiento de pago
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentRouteRequest" }
+      responses:
+        "200":
+          description: Ruta calculada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentRouteResponse" }
+        "400": { description: Solicitud inválida }
+
+  /strategy/negotiation_offer:
+    post:
+      summary: Genera una propuesta de negociación según perfil/campaña
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NegotiationOfferRequest" }
+      responses:
+        "200":
+          description: Propuesta generada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NegotiationOfferResponse" }
+        "400": { description: Solicitud inválida }
