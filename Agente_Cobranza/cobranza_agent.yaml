@@ -7,7 +7,7 @@ info:
     Incluye operaciones CRUD autenticadas con token Bearer.
 
 servers:
-  - url: http://localhost:5000
+  - url: http://localhost:6012
     description: Servidor local de desarrollo
 
 tags:
