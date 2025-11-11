@@ -1,0 +1,664 @@
+openapi: 3.1.0
+info:
+  title: Plataforma de Cobranza Omnicanal
+  version: 1.0.0
+  description: >
+    API REST para la gestión de clientes y métodos de pago en la plataforma de cobranza omnicanal.
+    Incluye operaciones CRUD autenticadas con token Bearer.
+
+servers:
+  - url: http://localhost:6012
+    description: Servidor local de desarrollo
+
+tags:
+  - name: Customers
+    description: Gestión de clientes/deudores
+  - name: Debts
+    description: Gestión de obligaciones/deudas
+  - name: PaymentMethods
+    description: Gestión de métodos de pago tokenizados
+  - name: Promises
+    description: Gestión de promesas de pago (PDP)
+  - name: Payments
+    description: Autorizaciones y conciliaciones de pagos
+  - name: AutoDebits
+    description: Configuración de débitos automáticos
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+parameters:
+    CustomerId:
+      name: customer_id
+      in: path
+      required: true
+      description: UUID del cliente
+      schema: { type: string, format: uuid }
+    DebtId:
+      name: debt_id
+      in: path
+      required: true
+      description: UUID de la deuda
+      schema: { type: string, format: uuid }
+    PaymentMethodId:
+      name: method_id
+      in: path
+      required: true
+      description: UUID del método de pago
+      schema: { type: string, format: uuid }
+    PromiseId:
+      name: promise_id
+      in: path
+      required: true
+      description: UUID de la promesa
+      schema: { type: string, format: uuid }
+    PaymentId:
+      name: payment_id
+      in: path
+      required: true
+      description: UUID del pago
+      schema: { type: string, format: uuid }
+    AutoDebitId:
+      name: auto_debit_id
+      in: path
+      required: true
+      description: UUID del débito automático
+      schema: { type: string, format: uuid }
+    Limit:
+      name: limit
+      in: query
+      description: Límite de elementos por página
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+    Offset:
+      name: offset
+      in: query
+      description: Desplazamiento/paginación
+      schema: { type: integer, minimum: 0, default: 0 }
+    Query:
+      name: q
+      in: query
+      description: Búsqueda por texto (nombre, email, etc.)
+      schema: { type: string }
+
+responses:
+    Unauthorized:
+      description: Token inválido o ausente
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Sin permisos para esta operación
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unprocessable:
+      description: Error de validación (422)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          
+  schemas:
+    Customer:
+      type: object
+      properties:
+        id: { type: string, example: "e7f6a12c-1c0f-4d5c-90d1-b5ea4129a123" }
+        name: { type: string, example: "Juan Pérez" }
+        email: { type: string, example: "juan@example.com" }
+        phone: { type: string, example: "+573001234567" }
+        metadata: { type: object }
+        created_at: { type: string, format: date-time }
+    PaymentMethod:
+      type: object
+      properties:
+        id: { type: string }
+        customer_id: { type: string }
+        type: { type: string, example: "card" }
+        provider: { type: string, example: "stripe" }
+        token: { type: string }
+        last4: { type: string, example: "4242" }
+        expiry_month: { type: integer }
+        expiry_year: { type: integer }
+        is_default: { type: boolean }
+        metadata: { type: object }
+        PaymentRouteRequest:
+      type: object
+      required: [payment_method, amount]
+      properties:
+        payment_method: { type: string, enum: [card, pse, wallet, corresponsal] }
+        amount: { type: number, format: float }
+        currency: { type: string, example: "MXN" }
+        provider: { type: string, example: "stripe" }
+        metadata: { type: object }
+    PaymentRouteResponse:
+      type: object
+      properties:
+        status: { type: string, example: "ok" }
+        route:
+          type: object
+          properties:
+            method: { type: string }
+            routed_to: { type: string }
+            steps:
+              type: array
+              items: { type: string }
+            amount: { type: number }
+            currency: { type: string }
+            reference_expires_in_hours: { type: integer }
+            metadata: { type: object }
+
+    NegotiationOfferRequest:
+      type: object
+      required: [segmento, amount_due, dpd, propension_pago]
+      properties:
+        segmento: { type: string, example: "consumo" }
+        amount_due: { type: number, format: float, example: 12000 }
+        dpd: { type: integer, example: 45, description: "Días de atraso" }
+        propension_pago: { type: number, format: float, example: 0.62 }
+        campaña: { type: string, example: "black_friday" }
+        metadata: { type: object }
+    NegotiationOfferResponse:
+      type: object
+      properties:
+        status: { type: string, example: "ok" }
+        proposal:
+          type: object
+          properties:
+            tactic: { type: string, enum: [discount, installments, hybrid] }
+            discount_pct: { type: number }
+            installments: { type: integer }
+            interest_rate_monthly: { type: number }
+            conditions:
+              type: array
+              items: { type: string }
+
+security:
+  - bearerAuth: []
+
+paths:
+  /customers:
+    get:
+      summary: Listar todos los clientes
+      responses:
+        "200":
+          description: Lista de clientes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Customer" }
+
+    post:
+      summary: Crear un nuevo cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              required: [name, email]
+              allOf: [{ $ref: "#/components/schemas/Customer" }]
+      responses:
+        "201":
+          description: Cliente creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+
+  /customers/{customer_id}:
+    get:
+      summary: Obtener un cliente específico
+      parameters:
+        - name: customer_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Cliente encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        "404": { description: No encontrado }
+
+    put:
+      summary: Actualizar datos del cliente
+      parameters:
+        - name: customer_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Customer" }
+      responses:
+        "200": { description: Cliente actualizado }
+
+    delete:
+      summary: Eliminar cliente
+      parameters:
+        - name: customer_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Cliente eliminado }
+
+  /payment_methods:
+    get:
+      summary: Listar todos los métodos de pago
+      responses:
+        "200":
+          description: Lista de métodos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PaymentMethod" }
+
+    post:
+      summary: Crear un nuevo método de pago
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              required: [customer_id, type, token]
+              allOf: [{ $ref: "#/components/schemas/PaymentMethod" }]
+      responses:
+        "201":
+          description: Método creado
+
+  /payment_methods/{method_id}:
+    get:
+      summary: Obtener método de pago específico
+      parameters:
+        - name: method_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Método encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentMethod" }
+
+    put:
+      summary: Actualizar método de pago
+      parameters:
+        - name: method_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentMethod" }
+      responses:
+        "200": { description: Método actualizado }
+
+    delete:
+      summary: Eliminar método de pago
+      parameters:
+        - name: method_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Método eliminado }
+    /strategy/payment_route:
+    post:
+      summary: Selecciona y ejecuta la estrategia de enrutamiento de pago
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentRouteRequest" }
+      responses:
+        "200":
+          description: Ruta calculada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentRouteResponse" }
+        "400": { description: Solicitud inválida }
+
+  /strategy/negotiation_offer:
+    post:
+      summary: Genera una propuesta de negociación según perfil/campaña
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NegotiationOfferRequest" }
+      responses:
+        "200":
+          description: Propuesta generada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NegotiationOfferResponse" }
+        "400": { description: Solicitud inválida }
+
+     /debts:
+    get:
+      summary: Listar deudas
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista de deudas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Debt" }
+        "400": { description: Solicitud inválida }
+
+    post:
+      summary: Crear deuda
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DebtCreate" }
+      responses:
+        "201":
+          description: Deuda creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Debt" }
+        "400": { description: Solicitud inválida }
+
+  /debts/{debt_id}:
+    get:
+      summary: Obtener deuda
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Deuda encontrada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Debt" }
+        "400": { description: Solicitud inválida }
+
+    put:
+      summary: Actualizar deuda (PUT)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DebtUpdate" }
+      responses:
+        "200":
+          description: Deuda actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Debt" }
+        "400": { description: Solicitud inválida }
+
+    patch:
+      summary: Actualización parcial de deuda (PATCH)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DebtUpdate" }
+      responses:
+        "200":
+          description: Deuda actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Debt" }
+        "400": { description: Solicitud inválida }
+
+    delete:
+      summary: Eliminar deuda
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Eliminado sin contenido
+        "400": { description: Solicitud inválida }
+
+    /promises:
+    get:
+      summary: Listar promesas de pago
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista de promesas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Promise" }
+        "400": { description: Solicitud inválida }
+
+    post:
+      summary: Crear promesa de pago
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PromiseCreate" }
+      responses:
+        "201":
+          description: Promesa creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Promise" }
+        "400": { description: Solicitud inválida }
+
+  /promises/{promise_id}:
+    get:
+      summary: Obtener promesa
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Promesa encontrada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Promise" }
+        "400": { description: Solicitud inválida }
+
+    put:
+      summary: Actualizar promesa (PUT)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PromiseUpdate" }
+      responses:
+        "200":
+          description: Promesa actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Promise" }
+        "400": { description: Solicitud inválida }
+
+    patch:
+      summary: Actualización parcial de promesa (PATCH)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PromiseUpdate" }
+      responses:
+        "200":
+          description: Promesa actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Promise" }
+        "400": { description: Solicitud inválida }
+
+    delete:
+      summary: Eliminar promesa
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Eliminado sin contenido
+        "400": { description: Solicitud inválida }
+
+  /payments:
+    get:
+      summary: Listar pagos
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista de pagos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Payment" }
+        "400": { description: Solicitud inválida }
+
+    post:
+      summary: Crear pago (autorización)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PaymentCreate" }
+      responses:
+        "201":
+          description: Pago creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payment" }
+        "400": { description: Solicitud inválida }
+
+  /payments/{payment_id}:
+    get:
+      summary: Obtener pago
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Pago encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payment" }
+        "400": { description: Solicitud inválida }
+
+  /auto_debits:
+    get:
+      summary: Listar débitos automáticos
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista de débitos automáticos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AutoDebit" }
+        "400": { description: Solicitud inválida }
+
+    post:
+      summary: Crear débito automático
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AutoDebitCreate" }
+      responses:
+        "201":
+          description: Débito automático creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutoDebit" }
+        "400": { description: Solicitud inválida }
+
+  /auto_debits/{auto_debit_id}:
+    get:
+      summary: Obtener débito automático
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Débito automático encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutoDebit" }
+        "400": { description: Solicitud inválida }
+
+    put:
+      summary: Actualizar débito automático (PUT)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AutoDebitUpdate" }
+      responses:
+        "200":
+          description: Débito automático actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutoDebit" }
+        "400": { description: Solicitud inválida }
+
+    patch:
+      summary: Actualización parcial de débito automático (PATCH)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AutoDebitUpdate" }
+      responses:
+        "200":
+          description: Débito automático actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutoDebit" }
+        "400": { description: Solicitud inválida }
+
+    delete:
+      summary: Eliminar débito automático
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Eliminado sin contenido
+        "400": { description: Solicitud inválida }
