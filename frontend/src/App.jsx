@@ -5,9 +5,11 @@ import PaymentMethods from './components/PaymentMethods'
 import PaymentRoute from './components/PaymentRoute'
 import Negotiation from './components/Negotiation'
 import Agent from './components/Agent'
+import UseCases from './components/UseCases'
 
 
 const tabs = [
+  { id: 'usecases', label: 'Casos de Uso' },
   { id: 'customers', label: 'Clientes' },
   { id: 'methods', label: 'Métodos de Pago' },
   { id: 'route', label: 'Ruta de Pago' },
@@ -17,13 +19,14 @@ const tabs = [
 
 
 export default function App() {
-  const [active, setActive] = useState('customers')
+  const [active, setActive] = useState('usecases')
   const [token, setTokenState] = useState(getToken())
 
   useEffect(() => { setToken(token) }, [token])
 
   const Content = useMemo(() => {
     switch (active) {
+      case 'usecases': return <UseCases onGoToTab={setActive} />
       case 'customers': return <Customers />
       case 'methods': return <PaymentMethods />
       case 'route': return <PaymentRoute />
@@ -65,4 +68,3 @@ export default function App() {
     </div>
   )
 }
-

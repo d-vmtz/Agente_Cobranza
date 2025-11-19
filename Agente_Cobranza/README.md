@@ -61,8 +61,9 @@ Autenticación
   - Para un cliente con método tokenizado, se calcula la ruta óptima de pago según el canal/proveedor.
   - La UI muestra los pasos (token-verify, 3ds, capture; o bank-redirect) y la referencia en corresponsal.
 
-## Notas de diseño/UI
+## Referencia de casos de uso y UI
 
-- Frontend centrado en tareas: pestañas “Clientes”, “Métodos”, “Ruta de Pago” y “Negociación”.
-- Validaciones básicas y mensajes de error/éxito visibles.
-- CORS habilitado en backend para `localhost` por defecto.
+- La pestaña nueva “Casos de Uso” documenta cada flujo (clientes, métodos de pago, ruta, negociación y agente inteligente), muestra el endpoint que toca, ejemplos de payload y permite saltar directamente a la pestaña correspondiente del panel.
+- También se mantiene `USE_CASES.md` en el raíz con la misma descripción para consultarla fuera del navegador.
+- Frontend actualizado: pestañas “Casos de Uso”, “Clientes”, “Métodos de Pago”, “Ruta de Pago”, “Negociación” y “Agente”, con estilos renovados y tarjetas explicativas en la nueva vista.
+- Para validar localmente usa `npm run build` en `frontend/` (además del flujo dev ya descrito).

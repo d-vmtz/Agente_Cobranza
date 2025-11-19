@@ -30,3 +30,65 @@ button.danger{background:linear-gradient(180deg,#ef4444,#dc2626);border:none}
 .success{background:#052e1b;border:1px solid #064e3b;color:#bbf7d0;padding:8px 10px;border-radius:8px;margin-top:8px}
 .spacer{height:8px}
 
+.use-cases p.small{margin-top:0;font-size:13px}
+.use-case-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:16px;
+  margin-top:14px;
+}
+.use-case-card{
+  border:1px solid rgba(148,163,184,.2);
+  border-radius:16px;
+  padding:16px;
+  background:linear-gradient(180deg,#111827,#0b1220);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-height:260px;
+}
+.use-case-header{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:flex-start;
+}
+.use-case-header h4{
+  margin:0;
+  font-size:16px;
+}
+.tag{
+  font-size:11px;
+  background:#1f2937;
+  padding:4px 8px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.endpoint{
+  font-size:11px;
+  color:#a5b4fc;
+}
+.description{
+  font-size:13px;
+  line-height:1.4;
+  color:#cbd5f5;
+}
+.use-case-sample code{
+  font-size:12px;
+  color:#f8fafc;
+  background:#0b1220;
+}
+.use-case-steps{
+  margin:0;
+  padding-left:18px;
+  font-size:13px;
+  color:#e2e8f0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.use-case-card button{
+  margin-top:auto;
+}
